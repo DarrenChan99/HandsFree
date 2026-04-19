@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='google.protobuf')
+
 import mediapipe as mp
 import cv2 as cv
 import math
@@ -29,7 +32,12 @@ class Hand_Detector:
                 middleFinger = handLms.landmark[9]
                 dist = math.sqrt((middleFinger.x - wrist.x)**2 + (middleFinger.y - wrist.y)**2 + (middleFinger.z - wrist.z)**2) # scale
 
-                normalized = []
+                thumb = handLms.landmark[4]
+                pointer = handLms.landmark[8]
+
+                thumb_to_pointer_dist = math.sqrt((thumb.x - pointer.x)**2 + (thumb.y - pointer.y)**2 + (thumb.z - pointer.z)**2)
+
+                normalized = [thumb_to_pointer_dist]
 
                 for lm in handLms.landmark:
                     new_x = lm.x - wrist.x
@@ -38,6 +46,8 @@ class Hand_Detector:
                     normalized.append(new_x/dist)
                     normalized.append(new_y/dist)
                     normalized.append(new_z/dist)
+
+                   
 
                 all_info.append(normalized)
 

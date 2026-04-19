@@ -15,14 +15,12 @@ def main():
     cap = cv.VideoCapture(0)
     detector = Hand_Detector()
     screen_width, screen_height = pyautogui.size()
-
+    
     edge_margin_px = 5
     alpha = 0.35
     smoothed_x, smoothed_y = None, None
 
-    lastGestures = deque(maxlen=5)  
-
-   
+    lastGestures = deque(maxlen=7)  
 
     while True:
         success, frame = cap.read()
@@ -38,6 +36,9 @@ def main():
             prediction = model.predict([hand_data[0]])
             raw_gesture = prediction[0]
 
+            probabilities = model.predict_proba([hand_data[0]])[0]
+            confidence = max(probabilities) * 100  
+
             lastGestures.append(raw_gesture)
 
 
@@ -46,7 +47,8 @@ def main():
                 gesture_count[gesture] = gesture_count.get(gesture, 0) + 1
             gesture = max(gesture_count, key=gesture_count.get)
 
-            annotate(frame, f"Gesture: {gesture}", org=(50, 100), fontScale=2, color=(255, 0, 0))
+            confidence_color = (0, 255, 0) if confidence > 80 else (0, 165, 255) if confidence > 60 else (0, 0, 255)
+            annotate(frame, f"Gesture: {gesture} ({confidence:.1f}%)", org=(50, 100), fontScale=2, color=confidence_color)
 
             if detector.results and detector.results.multi_hand_landmarks:
                 for handLms in detector.results.multi_hand_landmarks:
@@ -67,7 +69,7 @@ def main():
                         smoothed_x = int(alpha * target_x + (1 - alpha) * smoothed_x)
                         smoothed_y = int(alpha * target_y + (1 - alpha) * smoothed_y)
 
-                    if gesture != "Pinch":
+                    if gesture == "Cursor":
                         pyautogui.moveTo(smoothed_x, smoothed_y, _pause=False)
             
             if gesture == "Pinch":
