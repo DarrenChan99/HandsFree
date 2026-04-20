@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 
 data = pd.read_csv('training.csv', header=None)
 
-X = data.iloc[:, 1:] # cols 1-63, coordinates 
+X = data.iloc[:, 1:] # cols 1-64, coordinates 
 y = data.iloc[:, 0] # col 0, label
 
 x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=True, stratify=y)

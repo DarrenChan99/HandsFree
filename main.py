@@ -12,13 +12,14 @@ class Hand_Detector:
         self.hands = self.mp_hands.Hands(static_image_mode=mode, max_num_hands=max_num_hands, min_detection_confidence=min_detection_confidence)
         self.mp_draw = mp.solutions.drawing_utils 
 
-    def find_hands(self, frame, draw=True):
+    def find_hands(self, frame, draw=True, draw_target=None):
         rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         self.results = self.hands.process(rgb_frame)
 
-        if self.results.multi_hand_landmarks:
+        if draw and self.results.multi_hand_landmarks:
+            target = draw_target if draw_target is not None else frame
             for handLms in self.results.multi_hand_landmarks:
-                self.mp_draw.draw_landmarks(frame, handLms, self.mp_hands.HAND_CONNECTIONS)
+                self.mp_draw.draw_landmarks(target, handLms, self.mp_hands.HAND_CONNECTIONS)
         return frame
     
 
