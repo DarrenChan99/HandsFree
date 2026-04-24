@@ -1,5 +1,6 @@
 import pickle
 import cv2 as cv
+import numpy as np
 from main import Hand_Detector, annotate
 import pyautogui
 from collections import deque
@@ -45,7 +46,7 @@ def main():
     prev_time = 0
     fps = 0
     frame_counter = 0
-    skip_frame_interval = 1 # unused currently if 1
+    skip_frame_interval = 1 # unused currently
     gesture = None
     confidence = 0
 
