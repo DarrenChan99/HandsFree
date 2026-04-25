@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HandsFree ✋</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+    <video id="webcam" autoplay playsinline></video>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="guide-box" class="npc-box">
+        <div class="npc-header">Welcome!</div>
+        <p id="guide-text">Here is my project HandsFree✋</p>
+        <div class="npc-footer">
+            <span class="nav-hint">◂ Tap Left to go back</span>
+            <span class="nav-hint">Tap Right to skip ▸</span>
+        </div>
+    </div>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
