@@ -1,89 +1,113 @@
+/* --- VARIABLES --- */
+:root {
+    --bg-dark: #0b0b0b;
+    --card-bg: #1a1a1a;
+    --border-subtle: #3f3f46;
+    --accent-gold: #d97706;
+    --text-primary: #e8e8e8;
+}
+
+/* --- RESET --- */
+* {
+    box-sizing: border-box;
+}
+
 body, html {
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
     margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     overflow: hidden;
-    background-color: #000;
-    font-family: 'Courier New', Courier, monospace; /* Gaming vibe */
 }
 
-.viewport {
-    width: 800px;        /* Fixed width */
-    height: 600px;       /* Fixed height */
-    position: relative;
-    border: 4px solid #00FF64; /* Neon green border from your sketch */
-    border-radius: 15px;
-    overflow: hidden;    /* Clips the webcam to this box */
-    box-shadow: 0 0 20px rgba(0, 255, 100, 0.3);
+/* --- TYPOGRAPHY --- */
+#title {
+    font-weight: 300;
+    font-size: 2.8rem;
+    margin-bottom: 25px;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
 }
 
+/* --- GAME VIEWPORT --- */
 .game-viewport {
-    width: 854px; /* Standard 480p/720p ratio scale */
+    width: 854px;
     height: 480px;
     position: relative;
-    border: 3px solid #00FF64; /* Your neon green */
-    background: #000;
-    box-shadow: 0 0 30px rgba(0, 255, 100, 0.2);
-    overflow: hidden;
+    background: var(--card-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    overflow: hidden; /* Clips the webcam */
 }
 
 #webcam {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.4; /* Keeping your HUD look */
-    transform: scaleX(-1); /* Mirroring is essential for intuition */
+    opacity: 0.6;
+    transform: scaleX(-1);
+    z-index: 1;
 }
 
 #gameCanvas {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 5; /* Canvas sits on top of video */
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    pointer-events: none; /* Lets clicks pass through */
 }
 
-/* The NPC Guide Box */
+/* --- GUIDE BOX --- */
 .npc-box {
     position: absolute;
-    z-index: 10;
-    width: 300px;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 450px;
+    background: rgba(26, 26, 26, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
     padding: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px); /* Glass effect */
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    border-radius: 15px;
-    color: white;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
-    
-    /* Smooth floating physics */
-    pointer-events: auto;
-    transform: translate(-50%, -50%); /* Centers the box on the coordinate */
-    transition: transform 0.1s ease-out; /* Makes the movement feel 'organic' */
+    z-index: 10;
+    text-align: center;
 }
 
 .npc-header {
-    font-size: 0.7rem;
-    color: #4CAF50;
-    border-bottom: 1px solid #4CAF50;
-    margin-bottom: 10px;
-    letter-spacing: 2px;
+    color: var(--accent-gold);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
 }
 
 #guide-text {
-    font-size: 1.1rem;
-    line-height: 1.4;
-    margin-bottom: 15px;
+    font-size: 1.2rem;
+    line-height: 1.5;
+    margin: 0;
+    color: var(--text-primary);
 }
 
 .npc-footer {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.6rem;
-    opacity: 0.6;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: #888;
 }
 
-/* Success State - Flash Green */
+/* --- SUCCESS STATE --- */
 .success-flash {
     border-color: #4CAF50 !important;
     background: rgba(76, 175, 80, 0.2) !important;

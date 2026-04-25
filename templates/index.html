@@ -8,17 +8,17 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
+    <h1 class="claude-title">HandsFree ✋</h1>
 
-    <video id="webcam" autoplay playsinline></video>
+    <div class="game-viewport">
+        <video id="webcam" autoplay playsinline></video>
+        
+        <canvas id="gameCanvas"></canvas>
 
-    <canvas id="gameCanvas"></canvas>
-
-    <div id="guide-box" class="npc-box">
-        <div class="npc-header">Welcome!</div>
-        <p id="guide-text">Here is my project HandsFree✋</p>
-        <div class="npc-footer">
-            <span class="nav-hint">◂ Tap Left to go back</span>
-            <span class="nav-hint">Tap Right to skip ▸</span>
+        <div id="guide-box" class="npc-box">
+            <div class="npc-header">SYSTEM GUIDE</div>
+            <p id="guide-text">Initialising interface...</p>
+            <div class="npc-footer">Demo Mode Active</div>
         </div>
     </div>
 

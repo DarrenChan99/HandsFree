@@ -1,6 +1,6 @@
 import pickle
 import cv2 as cv
-from main import Hand_Detector, annotate
+from main import Hand_Detector
 import base64
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
