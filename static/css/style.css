@@ -26,7 +26,7 @@ body, html {
 }
 
 /* --- TYPOGRAPHY --- */
-#title {
+#title, .claude-title {
     font-weight: 300;
     font-size: 2.8rem;
     margin-bottom: 25px;
@@ -99,6 +99,9 @@ body, html {
     line-height: 1.5;
     margin: 0;
     color: var(--text-primary);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 .npc-footer {
@@ -111,4 +114,43 @@ body, html {
 .success-flash {
     border-color: #4CAF50 !important;
     background: rgba(76, 175, 80, 0.2) !important;
+}
+
+/* --- PLAYGROUND MODE --- */
+@keyframes slideOutDown {
+    from { opacity: 1; transform: translateX(-50%) translateY(0); }
+    to   { opacity: 0; transform: translateX(-50%) translateY(50px); }
+}
+
+@keyframes slideInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.npc-box.sliding-out {
+    animation: slideOutDown 0.5s ease forwards;
+    pointer-events: none;
+}
+
+/* Guide box repositioned below the game viewport */
+.npc-box.playground-guide {
+    position: static;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    width: 854px;
+    max-width: 100%;
+    margin-top: 16px;
+    text-align: left;
+    animation: slideInUp 0.6s ease forwards;
+}
+
+/* Allow the page to scroll when playground content appears below */
+html.playground-mode,
+body.playground-mode {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+    justify-content: flex-start;
+    padding: 24px 0;
 }
