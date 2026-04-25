@@ -244,29 +244,46 @@ function resetToMazeStart() {
 }
 
 function drawMaze() {
+  // 5-turn zigzag path:
+  // (0.1,0.8) → right → (0.3,0.8) → up → (0.3,0.5)
+  // → right → (0.7,0.5) → down → (0.7,0.75)
+  // → right → (0.85,0.75) → up → (0.85,0.2)  [goal]
+  const pts = [
+    [0.1, 0.8],
+    [0.3, 0.8],
+    [0.3, 0.5],
+    [0.7, 0.5],
+    [0.7, 0.75],
+    [0.85, 0.75],
+    [0.85, 0.2],
+  ];
+
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
+  // White walls
   ctx.beginPath();
   ctx.strokeStyle = "white";
-  ctx.lineWidth = 60;
-  ctx.moveTo(canvas.width * 0.1, canvas.height * 0.8);
-  ctx.lineTo(canvas.width * 0.4, canvas.height * 0.8);
-  ctx.lineTo(canvas.width * 0.4, canvas.height * 0.2);
-  ctx.lineTo(canvas.width * 0.9, canvas.height * 0.2);
+  ctx.lineWidth = 52;
+  ctx.moveTo(canvas.width * pts[0][0], canvas.height * pts[0][1]);
+  for (let i = 1; i < pts.length; i++) {
+    ctx.lineTo(canvas.width * pts[i][0], canvas.height * pts[i][1]);
+  }
   ctx.stroke();
 
+  // Black corridor
   ctx.beginPath();
   ctx.strokeStyle = "black";
-  ctx.lineWidth = 50;
-  ctx.moveTo(canvas.width * 0.1, canvas.height * 0.8);
-  ctx.lineTo(canvas.width * 0.4, canvas.height * 0.8);
-  ctx.lineTo(canvas.width * 0.4, canvas.height * 0.2);
-  ctx.lineTo(canvas.width * 0.9, canvas.height * 0.2);
+  ctx.lineWidth = 40;
+  ctx.moveTo(canvas.width * pts[0][0], canvas.height * pts[0][1]);
+  for (let i = 1; i < pts.length; i++) {
+    ctx.lineTo(canvas.width * pts[i][0], canvas.height * pts[i][1]);
+  }
   ctx.stroke();
 
+  // Green goal at the end of the path
   ctx.fillStyle = "#00FF64";
-  ctx.fillRect(canvas.width * 0.85, canvas.height * 0.15, 60, 60);
+  ctx.fillRect(canvas.width * 0.81, canvas.height * 0.15, 50, 50);
 }
 
 setInterval(() => {
