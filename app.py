@@ -2,7 +2,7 @@ import pickle
 import cv2 as cv
 from main import Hand_Detector
 import base64
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 import numpy as np
 import os
@@ -13,9 +13,18 @@ model = model_dict['model']
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-detector = Hand_Detector(max_num_hands=1)
+user_detectors = {}
 
 INFERENCE_W, INFERENCE_H = 320, 240
+
+@socketio.on('connect')
+def handle_connect():
+    user_detectors[request.sid] = Hand_Detector(max_num_hands=1)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    if request.sid in user_detectors:
+        del user_detectors[request.sid]
 
 @app.route('/')
 def index():
@@ -32,6 +41,10 @@ def handle_frame(data):
             return
         
     except Exception:
+        return
+
+    detector = user_detectors.get(request.sid)
+    if not detector:
         return
 
     lower_res = cv.resize(frame, (INFERENCE_W, INFERENCE_H))
