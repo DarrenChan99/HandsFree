@@ -49,12 +49,18 @@ def handle_frame(data):
             landmarks = detector.results.multi_hand_landmarks[0]
             index = landmarks.landmark[8]
 
+            all_landmarks = [
+                {"x": round(1.0 - lm.x, 4), "y": round(lm.y, 4)}
+                for lm in landmarks.landmark
+            ]
+
             packet.update({
                 "gesture" : raw_gesture,
                 "confidence" : round(confidence, 1),
                 "x" : 1.0 - index.x,
                 "y" : index.y,
-                "is_detected": True
+                "is_detected": True,
+                "landmarks": all_landmarks
             })
 
     emit('predicted_results', packet)

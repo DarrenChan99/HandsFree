@@ -15,10 +15,47 @@ const confidenceThreshold = 65;
 let currentStage = 0;
 let stageCompleted = false;
 let transitioning = false;
+let playgroundMode = false;
+
+// --- Hand data & FPS tracking ---
+let latestHandData = null;
+let socketFPS = 0;
+let lastSocketTime = performance.now();
 
 // --- Typing animation ---
 let typingTimer = null;
 let lastDisplayedText = null;
+
+// --- Maze geometry (shared between drawMaze and check) ---
+const mazePts = [
+  [0.1,  0.8],
+  [0.3,  0.8],
+  [0.3,  0.5],
+  [0.7,  0.5],
+  [0.7,  0.75],
+  [0.85, 0.75],
+  [0.85, 0.2],
+];
+// Goal rectangle in normalised coordinates
+const mazeGoal = { x: 0.80, y: 0.17, w: 0.06, h: 0.06 };
+
+// MediaPipe hand connections (21 landmark indices)
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],           // thumb
+  [0,5],[5,6],[6,7],[7,8],           // index
+  [0,9],[9,10],[10,11],[11,12],      // middle
+  [0,13],[13,14],[14,15],[15,16],    // ring
+  [0,17],[17,18],[18,19],[19,20],    // pinky
+  [5,9],[9,13],[13,17],             // palm arch
+];
+
+function pointToSegmentDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
 
 function setGuideText(text) {
   if (text === lastDisplayedText) return;
@@ -27,11 +64,11 @@ function setGuideText(text) {
     clearTimeout(typingTimer);
     typingTimer = null;
   }
-  guideText.innerText = "";
+  guideText.textContent = "";
   let i = 0;
   function typeChar() {
     if (i < text.length) {
-      guideText.innerText += text[i];
+      guideText.textContent += text[i];
       i++;
       typingTimer = setTimeout(typeChar, 35);
     }
@@ -73,9 +110,9 @@ const tutorialStages = [
   {
     id: "shape_circle",
     prompt: "SHAPE TEST: Pinch the circle below to grab it.",
-    targetPos: { x: 0.5, y: 0.8, radius: 55 },
+    targetPos: { x: 0.5, y: 0.45, radius: 55 },
     check: (data, screenPos) => {
-      const dist = Math.hypot(screenPos.x - 0.5 * canvas.width, screenPos.y - 0.8 * canvas.height);
+      const dist = Math.hypot(screenPos.x - 0.5 * canvas.width, screenPos.y - 0.45 * canvas.height);
       return data.gesture === "Pinch" && dist < 55;
     },
     nextText: "Nice hit! More shapes incoming...",
@@ -105,12 +142,31 @@ const tutorialStages = [
     prompt: "MAZE PROTOCOL: Reach the green goal. Avoid the white walls!",
     isMaze: true,
     check: (data, screenPos) => {
-      const pixel = ctx.getImageData(screenPos.x, screenPos.y, 1, 1).data;
-      if (pixel[0] > 200 && pixel[1] > 200 && pixel[2] > 200) {
-        resetToMazeStart();
-        return false;
+      const px = screenPos.x, py = screenPos.y;
+
+      // Check if cursor reached the green goal (geometric)
+      const gx = canvas.width  * mazeGoal.x;
+      const gy = canvas.height * mazeGoal.y;
+      const gw = canvas.width  * mazeGoal.w;
+      const gh = canvas.height * mazeGoal.h;
+      if (px >= gx && px <= gx + gw && py >= gy && py <= gy + gh) {
+        return true;
       }
-      return pixel[1] > 200 && pixel[0] < 100; // green goal
+
+      // Check if cursor left the black corridor (half-width = 20 canvas px)
+      let minDist = Infinity;
+      for (let i = 0; i < mazePts.length - 1; i++) {
+        const d = pointToSegmentDist(
+          px, py,
+          mazePts[i][0]   * canvas.width, mazePts[i][1]   * canvas.height,
+          mazePts[i+1][0] * canvas.width, mazePts[i+1][1] * canvas.height
+        );
+        minDist = Math.min(minDist, d);
+      }
+      if (minDist > 20) {
+        resetToMazeStart();
+      }
+      return false;
     },
     nextText: "Maze Escaped!",
   },
@@ -189,6 +245,11 @@ function update(shouldDrawGame = false) {
 }
 
 socket.on("predicted_results", (data) => {
+  const now = performance.now();
+  socketFPS = Math.round(1000 / (now - lastSocketTime));
+  lastSocketTime = now;
+  latestHandData = data;
+
   targetX = data.x;
   targetY = data.y;
 
@@ -213,6 +274,7 @@ function updateStageCompleted(stage) {
 
   if (stage.id === "final_star") {
     triggerConfetti();
+    setTimeout(enterPlaygroundMode, 4000);
     return;
   }
 
@@ -243,21 +305,35 @@ function resetToMazeStart() {
   targetY = 0.8;
 }
 
-function drawMaze() {
-  // 5-turn zigzag path:
-  // (0.1,0.8) → right → (0.3,0.8) → up → (0.3,0.5)
-  // → right → (0.7,0.5) → down → (0.7,0.75)
-  // → right → (0.85,0.75) → up → (0.85,0.2)  [goal]
-  const pts = [
-    [0.1, 0.8],
-    [0.3, 0.8],
-    [0.3, 0.5],
-    [0.7, 0.5],
-    [0.7, 0.75],
-    [0.85, 0.75],
-    [0.85, 0.2],
-  ];
+function enterPlaygroundMode() {
+  playgroundMode = true;
 
+  // Slide the guide box out of the viewport
+  guideBox.classList.add("sliding-out");
+
+  setTimeout(() => {
+    // Move guide box to below the game viewport in the DOM
+    const gameViewport = document.querySelector(".game-viewport");
+    gameViewport.parentNode.insertBefore(guideBox, gameViewport.nextSibling);
+
+    // Enable scrolling so the guide box below is reachable
+    document.body.classList.add("playground-mode");
+    document.documentElement.classList.add("playground-mode");
+
+    guideBox.classList.remove("sliding-out");
+    guideBox.classList.add("playground-guide");
+
+    const footer = guideBox.querySelector(".npc-footer");
+    if (footer) footer.textContent = "Playground Mode Active";
+
+    lastDisplayedText = null;
+    setGuideText(
+      "🎉 Demo complete! HandsFree is now in playground mode. Wave your hand and try all gestures — live stats are on screen."
+    );
+  }, 500);
+}
+
+function drawMaze() {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
@@ -265,9 +341,9 @@ function drawMaze() {
   ctx.beginPath();
   ctx.strokeStyle = "white";
   ctx.lineWidth = 52;
-  ctx.moveTo(canvas.width * pts[0][0], canvas.height * pts[0][1]);
-  for (let i = 1; i < pts.length; i++) {
-    ctx.lineTo(canvas.width * pts[i][0], canvas.height * pts[i][1]);
+  ctx.moveTo(canvas.width * mazePts[0][0], canvas.height * mazePts[0][1]);
+  for (let i = 1; i < mazePts.length; i++) {
+    ctx.lineTo(canvas.width * mazePts[i][0], canvas.height * mazePts[i][1]);
   }
   ctx.stroke();
 
@@ -275,15 +351,20 @@ function drawMaze() {
   ctx.beginPath();
   ctx.strokeStyle = "black";
   ctx.lineWidth = 40;
-  ctx.moveTo(canvas.width * pts[0][0], canvas.height * pts[0][1]);
-  for (let i = 1; i < pts.length; i++) {
-    ctx.lineTo(canvas.width * pts[i][0], canvas.height * pts[i][1]);
+  ctx.moveTo(canvas.width * mazePts[0][0], canvas.height * mazePts[0][1]);
+  for (let i = 1; i < mazePts.length; i++) {
+    ctx.lineTo(canvas.width * mazePts[i][0], canvas.height * mazePts[i][1]);
   }
   ctx.stroke();
 
-  // Green goal at the end of the path
+  // Green goal at the end of the path (normalised so it scales with canvas)
   ctx.fillStyle = "#00FF64";
-  ctx.fillRect(canvas.width * 0.81, canvas.height * 0.15, 50, 50);
+  ctx.fillRect(
+    canvas.width  * mazeGoal.x,
+    canvas.height * mazeGoal.y,
+    canvas.width  * mazeGoal.w,
+    canvas.height * mazeGoal.h
+  );
 }
 
 setInterval(() => {
@@ -299,6 +380,15 @@ setInterval(() => {
 
 function drawGame(x, y) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // ---- Playground mode: just show stats + hand ----
+  if (playgroundMode) {
+    drawPlaygroundStats();
+    drawDisplayHand(x, y);
+    if (confettiParticles.length > 0) drawConfetti();
+    return;
+  }
+
   const stage = tutorialStages[currentStage];
 
   // Update guide text with typing animation
@@ -366,13 +456,76 @@ function drawGame(x, y) {
   }
 }
 
+function drawPlaygroundStats() {
+  const gesture    = latestHandData ? (latestHandData.gesture    || "None") : "None";
+  const confidence = latestHandData ? (latestHandData.confidence || 0) : 0;
+
+  const bx = 14, by = 14, bw = 240, bh = 94;
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+
+  ctx.textBaseline = "top";
+
+  ctx.font = "bold 11px monospace";
+  ctx.fillStyle = "#d97706";
+  ctx.fillText("PLAYGROUND STATS", bx + 12, by + 12);
+
+  ctx.font = "14px monospace";
+  ctx.fillStyle = "#e8e8e8";
+  ctx.fillText(`Gesture: ${gesture}`, bx + 12, by + 32);
+
+  const confColor = confidence > 80 ? "#00FF64" : confidence > 60 ? "#FFA500" : "#FF5555";
+  ctx.fillStyle = confColor;
+  ctx.fillText(`Confidence: ${confidence.toFixed(1)}%`, bx + 12, by + 52);
+
+  ctx.fillStyle = "#e8e8e8";
+  ctx.fillText(`Inference FPS: ${socketFPS}`, bx + 12, by + 72);
+}
+
 function drawDisplayHand(x, y) {
+  ctx.save();
+  ctx.shadowBlur = 0;
+
+  const landmarks = latestHandData && latestHandData.landmarks;
+  if (landmarks && landmarks.length === 21) {
+    // Draw bone connections
+    ctx.strokeStyle = "rgba(0, 200, 255, 0.75)";
+    ctx.lineWidth = 2;
+    for (const [a, b] of HAND_CONNECTIONS) {
+      const lax = landmarks[a].x * canvas.width;
+      const lay = landmarks[a].y * canvas.height;
+      const lbx = landmarks[b].x * canvas.width;
+      const lby = landmarks[b].y * canvas.height;
+      ctx.beginPath();
+      ctx.moveTo(lax, lay);
+      ctx.lineTo(lbx, lby);
+      ctx.stroke();
+    }
+
+    // Draw landmark dots
+    for (let i = 0; i < landmarks.length; i++) {
+      const lx = landmarks[i].x * canvas.width;
+      const ly = landmarks[i].y * canvas.height;
+      ctx.beginPath();
+      ctx.arc(lx, ly, i === 8 ? 7 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = i === 8 ? "#00FF64" : "rgba(0, 200, 255, 0.9)";
+      ctx.fill();
+    }
+  }
+
+  // Draw cursor glow dot (index-finger tip position)
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "#00FF64";
   ctx.beginPath();
   ctx.arc(x, y, 10, 0, Math.PI * 2);
   ctx.fillStyle = "#00FF64";
   ctx.fill();
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = "#00FF64";
+
+  ctx.restore();
 }
 
 function drawStarShape(cx, cy, outerR, innerR, points) {
