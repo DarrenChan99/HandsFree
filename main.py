@@ -1,16 +1,16 @@
-import warnings
-warnings.filterwarnings('ignore', category=UserWarning, module='google.protobuf')
-
 import mediapipe as mp
+# Force Python to explicitly load the solutions modules
+import mediapipe.python.solutions.hands as mp_hands
+import mediapipe.python.solutions.drawing_utils as mp_drawing
 import cv2 as cv
 import math
 import csv
 
 class Hand_Detector:
     def __init__(self, mode = False, max_num_hands = 2, min_detection_confidence = 0.7):
-        self.mp_hands = mp.solutions.hands
+        self.mp_hands = mp_hands
         self.hands = self.mp_hands.Hands(static_image_mode=mode, max_num_hands=max_num_hands, min_detection_confidence=min_detection_confidence)
-        self.mp_draw = mp.solutions.drawing_utils 
+        self.mp_draw = mp_drawing
 
     def find_hands(self, frame, draw=True, draw_target=None):
         rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
