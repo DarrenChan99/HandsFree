@@ -19,31 +19,30 @@ body, html {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-    overflow: hidden;
+    overflow: auto;
 }
 
 /* --- TYPOGRAPHY --- */
-#title, .claude-title {
-    font-weight: 300;
+#title{
+    font-family: "Jua", sans-serif;
+    font-weight: 400; 
     font-size: 2.8rem;
     margin-bottom: 25px;
-    letter-spacing: -0.03em;
     color: var(--text-primary);
 }
 
-/* --- GAME VIEWPORT --- */
 .game-viewport {
-    width: 854px;
-    height: 480px;
+    width: 800px;  /* Changed to fit 4:3 ratio perfectly */
+    height: 600px; /* Changed to fit 4:3 ratio perfectly */
     position: relative;
     background: var(--card-bg);
     border: 1px solid var(--border-subtle);
     border-radius: 16px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-    overflow: hidden; /* Clips the webcam */
+    overflow: hidden; 
 }
 
 #webcam {
@@ -95,7 +94,9 @@ body, html {
 }
 
 #guide-text {
-    font-size: 1.2rem;
+    font-family: "Jua", sans-serif;
+    font-size: 1.1rem; 
+    letter-spacing: 1px; 
     line-height: 1.5;
     margin: 0;
     color: var(--text-primary);

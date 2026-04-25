@@ -17,29 +17,15 @@ let stageCompleted = false;
 let transitioning = false;
 let playgroundMode = false;
 
-// --- Hand data & FPS tracking ---
+// hand data
 let latestHandData = null;
 let socketFPS = 0;
 let lastSocketTime = performance.now();
 
-// --- Typing animation ---
+// typing animation
 let typingTimer = null;
 let lastDisplayedText = null;
 
-// --- Maze geometry (shared between drawMaze and check) ---
-const mazePts = [
-  [0.1,  0.8],
-  [0.3,  0.8],
-  [0.3,  0.5],
-  [0.7,  0.5],
-  [0.7,  0.75],
-  [0.85, 0.75],
-  [0.85, 0.2],
-];
-// Goal rectangle in normalised coordinates
-const mazeGoal = { x: 0.80, y: 0.17, w: 0.06, h: 0.06 };
-
-// MediaPipe hand connections (21 landmark indices)
 const HAND_CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,4],           // thumb
   [0,5],[5,6],[6,7],[7,8],           // index
@@ -138,39 +124,6 @@ const tutorialStages = [
     nextText: "All Shapes Cleared!",
   },
   {
-    id: "maze",
-    prompt: "MAZE PROTOCOL: Reach the green goal. Avoid the white walls!",
-    isMaze: true,
-    check: (data, screenPos) => {
-      const px = screenPos.x, py = screenPos.y;
-
-      // Check if cursor reached the green goal (geometric)
-      const gx = canvas.width  * mazeGoal.x;
-      const gy = canvas.height * mazeGoal.y;
-      const gw = canvas.width  * mazeGoal.w;
-      const gh = canvas.height * mazeGoal.h;
-      if (px >= gx && px <= gx + gw && py >= gy && py <= gy + gh) {
-        return true;
-      }
-
-      // Check if cursor left the black corridor (half-width = 20 canvas px)
-      let minDist = Infinity;
-      for (let i = 0; i < mazePts.length - 1; i++) {
-        const d = pointToSegmentDist(
-          px, py,
-          mazePts[i][0]   * canvas.width, mazePts[i][1]   * canvas.height,
-          mazePts[i+1][0] * canvas.width, mazePts[i+1][1] * canvas.height
-        );
-        minDist = Math.min(minDist, d);
-      }
-      if (minDist > 20) {
-        resetToMazeStart();
-      }
-      return false;
-    },
-    nextText: "Maze Escaped!",
-  },
-  {
     id: "final_star",
     prompt: "FINAL TASK: Pinch the Star to complete the demo!",
     targetPos: { x: 0.5, y: 0.45 },
@@ -182,12 +135,11 @@ const tutorialStages = [
   },
 ];
 
-// --- Confetti particles ---
 let confettiParticles = [];
 
 function triggerConfetti() {
   if (confettiParticles.length > 0) return; // skip if particles still active
-  for (let i = 0; i < 180; i++) {
+  for (let i = 0; i < 400; i++) {
     confettiParticles.push({
       x: Math.random() * canvas.width,
       y: -Math.random() * canvas.height * 0.6,
@@ -219,11 +171,15 @@ function drawConfetti() {
 }
 
 async function startWebcam() {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-  video.srcObject = stream;
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 } 
+        } 
+      });  video.srcObject = stream;
 
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+    canvas.width = 800;
+    canvas.height = 600;
 }
 
 startWebcam().then(() => {
@@ -266,17 +222,27 @@ socket.on("predicted_results", (data) => {
   }
 });
 
-function updateStageCompleted(stage) {
-  if (transitioning) return;
+  function updateStageCompleted(stage) {
+    if (transitioning) return;
 
-  transitioning = true;
-  stageCompleted = true;
+    transitioning = true;
+    stageCompleted = true;
 
-  if (stage.id === "final_star") {
-    triggerConfetti();
-    setTimeout(enterPlaygroundMode, 4000);
-    return;
-  }
+    if (stage.id === "final_star") {
+    
+      triggerConfetti();
+      setTimeout(() => {
+        enterPlaygroundMode();
+
+        window.scrollTo({ 
+          top: document.body.scrollHeight,
+          behavior: "smooth" 
+        });
+        
+      }, 4000);
+    
+      return;
+    }
 
   guideBox.classList.add("success-flash");
 
@@ -286,37 +252,19 @@ function updateStageCompleted(stage) {
     transitioning = false;
     lastDisplayedText = null; // allow new stage prompt to type
     guideBox.classList.remove("success-flash");
-
-    // Auto-move cursor to maze start when entering the maze stage
-    const newStage = tutorialStages[currentStage];
-    if (newStage && newStage.isMaze) {
-      currX = 0.1;
-      currY = 0.8;
-      targetX = 0.1;
-      targetY = 0.8;
-    }
   }, 2000);
 }
 
-function resetToMazeStart() {
-  currX = 0.1;
-  currY = 0.8;
-  targetX = 0.1;
-  targetY = 0.8;
-}
 
 function enterPlaygroundMode() {
   playgroundMode = true;
 
-  // Slide the guide box out of the viewport
   guideBox.classList.add("sliding-out");
 
   setTimeout(() => {
-    // Move guide box to below the game viewport in the DOM
     const gameViewport = document.querySelector(".game-viewport");
     gameViewport.parentNode.insertBefore(guideBox, gameViewport.nextSibling);
 
-    // Enable scrolling so the guide box below is reachable
     document.body.classList.add("playground-mode");
     document.documentElement.classList.add("playground-mode");
 
@@ -324,47 +272,18 @@ function enterPlaygroundMode() {
     guideBox.classList.add("playground-guide");
 
     const footer = guideBox.querySelector(".npc-footer");
-    if (footer) footer.textContent = "Playground Mode Active";
 
     lastDisplayedText = null;
     setGuideText(
-      "🎉 Demo complete! HandsFree is now in playground mode. Wave your hand and try all gestures — live stats are on screen."
+      `🎉 Demo complete! HandsFree is now in playground mode. Wave your hand and play with all gestures. 
+      \n
+      While this demo is just for fun, it's just a proof of concept for a much bigger idea. The true goal of HandsFree is to give disabled or temporarily injured individuals full range of control over their device.
+      Imagine losing the ability to use a standard mouse and keyboard but still being able to seemlessly interact with your computer just through moving your hand.
+      If you believe in this vision and enjoyed the demo please consider leaving a vote.
+      Thank You so much for playing! I hope you enjoyed the experince 👍
+      `
     );
   }, 500);
-}
-
-function drawMaze() {
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  // White walls
-  ctx.beginPath();
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 52;
-  ctx.moveTo(canvas.width * mazePts[0][0], canvas.height * mazePts[0][1]);
-  for (let i = 1; i < mazePts.length; i++) {
-    ctx.lineTo(canvas.width * mazePts[i][0], canvas.height * mazePts[i][1]);
-  }
-  ctx.stroke();
-
-  // Black corridor
-  ctx.beginPath();
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 40;
-  ctx.moveTo(canvas.width * mazePts[0][0], canvas.height * mazePts[0][1]);
-  for (let i = 1; i < mazePts.length; i++) {
-    ctx.lineTo(canvas.width * mazePts[i][0], canvas.height * mazePts[i][1]);
-  }
-  ctx.stroke();
-
-  // Green goal at the end of the path (normalised so it scales with canvas)
-  ctx.fillStyle = "#00FF64";
-  ctx.fillRect(
-    canvas.width  * mazeGoal.x,
-    canvas.height * mazeGoal.y,
-    canvas.width  * mazeGoal.w,
-    canvas.height * mazeGoal.h
-  );
 }
 
 setInterval(() => {
@@ -381,7 +300,6 @@ setInterval(() => {
 function drawGame(x, y) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // ---- Playground mode: just show stats + hand ----
   if (playgroundMode) {
     drawPlaygroundStats();
     drawDisplayHand(x, y);
@@ -391,7 +309,6 @@ function drawGame(x, y) {
 
   const stage = tutorialStages[currentStage];
 
-  // Update guide text with typing animation
   const text = transitioning ? stage.nextText : stage.prompt;
   setGuideText(text);
 
@@ -440,9 +357,6 @@ function drawGame(x, y) {
       ctx.stroke();
       break;
     }
-    case "maze":
-      drawMaze();
-      break;
     case "final_star":
       drawFinalStar();
       break;
@@ -470,7 +384,7 @@ function drawPlaygroundStats() {
 
   ctx.textBaseline = "top";
 
-  ctx.font = "bold 11px monospace";
+  ctx.font = "bold 16px monospace";
   ctx.fillStyle = "#d97706";
   ctx.fillText("PLAYGROUND STATS", bx + 12, by + 12);
 
@@ -483,7 +397,7 @@ function drawPlaygroundStats() {
   ctx.fillText(`Confidence: ${confidence.toFixed(1)}%`, bx + 12, by + 52);
 
   ctx.fillStyle = "#e8e8e8";
-  ctx.fillText(`Inference FPS: ${socketFPS}`, bx + 12, by + 72);
+  ctx.fillText(`FPS: ${socketFPS}`, bx + 12, by + 72);
 }
 
 function drawDisplayHand(x, y) {
@@ -492,7 +406,7 @@ function drawDisplayHand(x, y) {
 
   const landmarks = latestHandData && latestHandData.landmarks;
   if (landmarks && landmarks.length === 21) {
-    // Draw bone connections
+    // bone segements
     ctx.strokeStyle = "rgba(0, 200, 255, 0.75)";
     ctx.lineWidth = 2;
     for (const [a, b] of HAND_CONNECTIONS) {
@@ -506,7 +420,7 @@ function drawDisplayHand(x, y) {
       ctx.stroke();
     }
 
-    // Draw landmark dots
+    // landmark dots
     for (let i = 0; i < landmarks.length; i++) {
       const lx = landmarks[i].x * canvas.width;
       const ly = landmarks[i].y * canvas.height;
@@ -517,13 +431,13 @@ function drawDisplayHand(x, y) {
     }
   }
 
-  // Draw cursor glow dot (index-finger tip position)
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = "#00FF64";
-  ctx.beginPath();
-  ctx.arc(x, y, 10, 0, Math.PI * 2);
-  ctx.fillStyle = "#00FF64";
-  ctx.fill();
+  
+  // ctx.shadowBlur = 15;
+  // ctx.shadowColor = "#00FF64";
+  // ctx.beginPath();
+  // ctx.arc(x, y, 10, 0, Math.PI * 2);
+  // ctx.fillStyle = "#00FF64";
+  // ctx.fill();
 
   ctx.restore();
 }

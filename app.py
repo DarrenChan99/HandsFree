@@ -5,6 +5,7 @@ import base64
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 import numpy as np
+import os
 
 model_dict = pickle.load(open('model.p', 'rb'))
 model = model_dict['model']
@@ -49,21 +50,20 @@ def handle_frame(data):
             landmarks = detector.results.multi_hand_landmarks[0]
             index = landmarks.landmark[8]
 
-            all_landmarks = [
-                {"x": round(1.0 - lm.x, 4), "y": round(lm.y, 4)}
-                for lm in landmarks.landmark
-            ]
+            # Extract all 21 landmarks and mirror the X coordinate
+            lm_list = [{"x": 1.0 - lm.x, "y": lm.y} for lm in landmarks.landmark]
 
             packet.update({
                 "gesture" : raw_gesture,
                 "confidence" : round(confidence, 1),
                 "x" : 1.0 - index.x,
                 "y" : index.y,
-                "is_detected": True,
-                "landmarks": all_landmarks
+                "landmarks" : lm_list, # Pass the full skeleton array
+                "is_detected": True
             })
 
     emit('predicted_results', packet)
     
 if __name__ == "__main__":
-    socketio.run(app, port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5001))
+    socketio.run(app, port=5001, debug=True)
