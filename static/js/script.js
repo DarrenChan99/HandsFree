@@ -170,21 +170,40 @@ function drawConfetti() {
   confettiParticles = confettiParticles.filter((p) => p.y < canvas.height + 30);
 }
 
-async function startWebcam() {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 } 
-        } 
-      });  video.srcObject = stream;
+// MEDIAPIPE MIGRATED CODE ========
+const hands = new Hands({locateFile: (file) => {
+  return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+}});
 
-    canvas.width = 800;
-    canvas.height = 600;
-}
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
 
-startWebcam().then(() => {
+hands.onResults((results) => {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const landmarks = results.multiHandLandmarks[0];
+    socket.emit('process_landmarks', { landmarks: landmarks });
+  }
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await hands.send({image: video});
+  },
+  width: 640,
+  height: 480
+});
+
+camera.start().then(() => {
+  canvas.width = 800;
+  canvas.height = 600;
   update(true);
 });
+// ==========================================
+
 
 function update(shouldDrawGame = false) {
   currX = currX + (targetX - currX) * alpha;
@@ -222,25 +241,21 @@ socket.on("predicted_results", (data) => {
   }
 });
 
-  function updateStageCompleted(stage) {
+function updateStageCompleted(stage) {
     if (transitioning) return;
 
     transitioning = true;
     stageCompleted = true;
 
     if (stage.id === "final_star") {
-    
       triggerConfetti();
       setTimeout(() => {
         enterPlaygroundMode();
-
         window.scrollTo({ 
           top: document.body.scrollHeight,
           behavior: "smooth" 
         });
-        
       }, 4000);
-    
       return;
     }
 
@@ -250,15 +265,13 @@ socket.on("predicted_results", (data) => {
     currentStage++;
     stageCompleted = false;
     transitioning = false;
-    lastDisplayedText = null; // allow new stage prompt to type
+    lastDisplayedText = null; 
     guideBox.classList.remove("success-flash");
   }, 2000);
 }
 
-
 function enterPlaygroundMode() {
   playgroundMode = true;
-
   guideBox.classList.add("sliding-out");
 
   setTimeout(() => {
@@ -271,31 +284,18 @@ function enterPlaygroundMode() {
     guideBox.classList.remove("sliding-out");
     guideBox.classList.add("playground-guide");
 
-    const footer = guideBox.querySelector(".npc-footer");
-
     lastDisplayedText = null;
     setGuideText(
       `🎉 Demo complete! HandsFree is now in playground mode. Wave your hand and play with all gestures. 
       \n
       While this demo is just for fun, it's just a proof of concept for a much bigger idea. The true goal of HandsFree is to give disabled or temporarily injured individuals full range of control over their device.
-      Imagine losing the ability to use a standard mouse and keyboard but still being able to seemlessly interact with your computer just through moving your hand.
+      Imagine losing the ability to use a standard mouse and keyboard but still being able to interact with your computer just through moving your hand.
       If you believe in this vision and enjoyed the demo please consider leaving a vote.
       Thank You so much for playing! I hope you enjoyed the experince 👍
       `
     );
   }, 500);
 }
-
-setInterval(() => {
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = 320; // same as inference_w from app.py
-  tempCanvas.height = 240;
-
-  const tempCtx = tempCanvas.getContext("2d");
-  tempCtx.drawImage(video, 0, 0, 320, 240);
-  const base64Frame = tempCanvas.toDataURL("image/jpeg", 0.5);
-  socket.emit("video_frame", base64Frame);
-}, 100);
 
 function drawGame(x, y) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -308,7 +308,6 @@ function drawGame(x, y) {
   }
 
   const stage = tutorialStages[currentStage];
-
   const text = transitioning ? stage.nextText : stage.prompt;
   setGuideText(text);
 
@@ -363,7 +362,7 @@ function drawGame(x, y) {
   }
 
   drawDisplayHand(x, y);
-
+  
   // Draw confetti on top of everything
   if (confettiParticles.length > 0) {
     drawConfetti();
@@ -373,7 +372,6 @@ function drawGame(x, y) {
 function drawPlaygroundStats() {
   const gesture    = latestHandData ? (latestHandData.gesture    || "None") : "None";
   const confidence = latestHandData ? (latestHandData.confidence || 0) : 0;
-
   const bx = 14, by = 14, bw = 240, bh = 94;
 
   ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
@@ -383,7 +381,6 @@ function drawPlaygroundStats() {
   ctx.strokeRect(bx, by, bw, bh);
 
   ctx.textBaseline = "top";
-
   ctx.font = "bold 16px monospace";
   ctx.fillStyle = "#d97706";
   ctx.fillText("PLAYGROUND STATS", bx + 12, by + 12);
@@ -395,7 +392,6 @@ function drawPlaygroundStats() {
   const confColor = confidence > 80 ? "#00FF64" : confidence > 60 ? "#FFA500" : "#FF5555";
   ctx.fillStyle = confColor;
   ctx.fillText(`Confidence: ${confidence.toFixed(1)}%`, bx + 12, by + 52);
-
   ctx.fillStyle = "#e8e8e8";
   ctx.fillText(`FPS: ${socketFPS}`, bx + 12, by + 72);
 }
@@ -403,7 +399,6 @@ function drawPlaygroundStats() {
 function drawDisplayHand(x, y) {
   ctx.save();
   ctx.shadowBlur = 0;
-
   const landmarks = latestHandData && latestHandData.landmarks;
   if (landmarks && landmarks.length === 21) {
     // bone segements
@@ -430,14 +425,6 @@ function drawDisplayHand(x, y) {
       ctx.fill();
     }
   }
-
-  
-  // ctx.shadowBlur = 15;
-  // ctx.shadowColor = "#00FF64";
-  // ctx.beginPath();
-  // ctx.arc(x, y, 10, 0, Math.PI * 2);
-  // ctx.fillStyle = "#00FF64";
-  // ctx.fill();
 
   ctx.restore();
 }
@@ -466,4 +453,3 @@ function drawFinalStar() {
   const cy = canvas.height * 0.45;
   drawStarShape(cx, cy, 65, 28, 5);
 }
-

@@ -1,81 +1,81 @@
 import pickle
-import cv2 as cv
-from main import Hand_Detector
-import base64
-from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit
-import numpy as np
 import os
-
-model_dict = pickle.load(open('model.p', 'rb'))
-model = model_dict['model']
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit
+import math
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-user_detectors = {}
-
-INFERENCE_W, INFERENCE_H = 320, 240
-
-@socketio.on('connect')
-def handle_connect():
-    user_detectors[request.sid] = Hand_Detector(max_num_hands=1)
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    if request.sid in user_detectors:
-        del user_detectors[request.sid]
+model_dict = pickle.load(open('model.p', 'rb'))
+model = model_dict['model']
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@socketio.on('video_frame')
-def handle_frame(data):
+@socketio.on('process_landmarks')
+def handle_landmarks(data):
+    landmarks = data.get('landmarks')
+    
+    if not landmarks:
+        return
+
     try:
-        header, encoded = data.split(",", 1)
-        numpyArr = np.frombuffer(base64.b64decode(encoded), np.uint8)
-        frame = cv.imdecode(numpyArr, cv.IMREAD_COLOR)
-
-        if frame is None:
-            return
+        wrist = landmarks[0]
+        middleFinger = landmarks[9]
         
-    except Exception:
-        return
-
-    detector = user_detectors.get(request.sid)
-    if not detector:
-        return
-
-    lower_res = cv.resize(frame, (INFERENCE_W, INFERENCE_H))
-    detector.find_hands(lower_res)
-    hand_data = detector.getNormalizedLandmarks()
-
-    packet = {"gestore" : "None", "confidence" : 0, "x" : 0, "y" : 0}
-
-    if hand_data:
-        probabilities = model.predict_proba([hand_data[0]])[0]
+        dist = math.sqrt((middleFinger['x'] - wrist['x'])**2 + 
+                         (middleFinger['y'] - wrist['y'])**2 + 
+                         (middleFinger['z'] - wrist['z'])**2)
+        
+        if dist < 1e-7:
+            dist = 0.0001
+            
+        thumb = landmarks[4]
+        pointer = landmarks[8]
+        thumb_to_pointer_dist = math.sqrt((thumb['x'] - pointer['x'])**2 + 
+                                          (thumb['y'] - pointer['y'])**2 + 
+                                          (thumb['z'] - pointer['z'])**2)
+        
+        normalized = [thumb_to_pointer_dist]
+        
+        for lm in landmarks:
+            new_x = lm['x'] - wrist['x']
+            new_y = lm['y'] - wrist['y']
+            new_z = lm['z'] - wrist['z']
+            
+            normalized.append(new_x / dist)
+            normalized.append(new_y / dist)
+            normalized.append(new_z / dist)
+            
+        # ------------------------------------------------
+            
+        probabilities = model.predict_proba([normalized])[0]
         confidence = max(probabilities) * 100
-        raw_gesture = model.predict([hand_data[0]])[0].strip()
+        raw_gesture = model.predict([normalized])[0].strip()
 
+ 
+        all_landmarks = [
+            {"x": round(1.0 - lm['x'], 4), "y": round(lm['y'], 4)}
+            for lm in landmarks
+        ]
+        
+        index_finger = landmarks[8]
 
-        if detector.results and detector.results.multi_hand_landmarks:
-            landmarks = detector.results.multi_hand_landmarks[0]
-            index = landmarks.landmark[8]
-
-            # Extract all 21 landmarks and mirror the X coordinate
-            lm_list = [{"x": 1.0 - lm.x, "y": lm.y} for lm in landmarks.landmark]
-
-            packet.update({
-                "gesture" : raw_gesture,
-                "confidence" : round(confidence, 1),
-                "x" : 1.0 - index.x,
-                "y" : index.y,
-                "landmarks" : lm_list, # Pass the full skeleton array
-                "is_detected": True
-            })
-
-    emit('predicted_results', packet)
+        packet = {
+            "gesture": raw_gesture,
+            "confidence": round(confidence, 1),
+            "x": 1.0 - index_finger['x'], # mirror x over
+            "y": index_finger['y'],
+            "is_detected": True,
+            "landmarks": all_landmarks
+        }
+        
+        emit('predicted_results', packet)
+        
+    except Exception as e:
+        print(f"Prediction Error: {e}")
     
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))

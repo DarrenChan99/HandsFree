@@ -25,7 +25,6 @@ body, html {
     overflow: auto;
 }
 
-/* --- TYPOGRAPHY --- */
 #title{
     font-family: "Jua", sans-serif;
     font-weight: 400; 
@@ -35,8 +34,8 @@ body, html {
 }
 
 .game-viewport {
-    width: 800px;  /* Changed to fit 4:3 ratio perfectly */
-    height: 600px; /* Changed to fit 4:3 ratio perfectly */
+    width: 800px;  
+    height: 600px; /* 4:3 aspect ratio like webcam*/
     position: relative;
     background: var(--card-bg);
     border: 1px solid var(--border-subtle);
@@ -111,13 +110,11 @@ body, html {
     color: #888;
 }
 
-/* --- SUCCESS STATE --- */
 .success-flash {
     border-color: #4CAF50 !important;
     background: rgba(76, 175, 80, 0.2) !important;
 }
 
-/* --- PLAYGROUND MODE --- */
 @keyframes slideOutDown {
     from { opacity: 1; transform: translateX(-50%) translateY(0); }
     to   { opacity: 0; transform: translateX(-50%) translateY(50px); }
@@ -133,7 +130,6 @@ body, html {
     pointer-events: none;
 }
 
-/* Guide box repositioned below the game viewport */
 .npc-box.playground-guide {
     position: static;
     bottom: auto;
@@ -146,7 +142,6 @@ body, html {
     animation: slideInUp 0.6s ease forwards;
 }
 
-/* Allow the page to scroll when playground content appears below */
 html.playground-mode,
 body.playground-mode {
     height: auto;
