@@ -170,14 +170,13 @@ function drawConfetti() {
   confettiParticles = confettiParticles.filter((p) => p.y < canvas.height + 30);
 }
 
-// MEDIAPIPE MIGRATED CODE ========
 const hands = new Hands({locateFile: (file) => {
   return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
 }});
 
 hands.setOptions({
   maxNumHands: 1,
-  modelComplexity: 1,
+  modelComplexity: 0, 
   minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5
 });
@@ -186,6 +185,8 @@ hands.onResults((results) => {
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     const landmarks = results.multiHandLandmarks[0];
     socket.emit('process_landmarks', { landmarks: landmarks });
+  } else {
+    latestHandData = null;
   }
 });
 
@@ -200,10 +201,17 @@ const camera = new Camera(video, {
 camera.start().then(() => {
   canvas.width = 800;
   canvas.height = 600;
-  update(true);
+  update(); 
 });
-// ==========================================
 
+function update() {
+  currX = currX + (targetX - currX) * alpha;
+  currY = currY + (targetY - currY) * alpha;
+
+  drawGame(currX * canvas.width, currY * canvas.height);
+
+  requestAnimationFrame(update);
+}
 
 function update(shouldDrawGame = false) {
   currX = currX + (targetX - currX) * alpha;
