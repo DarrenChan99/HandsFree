@@ -1,7 +1,7 @@
 import pickle
 import cv2 as cv
 import numpy as np
-from main import Hand_Detector, annotate
+from python_stuff.main import Hand_Detector, annotate
 import pyautogui
 from collections import deque
 import threading
