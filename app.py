@@ -52,13 +52,11 @@ def handle_landmarks(data):
         thumb = landmarks[4]
         pointer = landmarks[8]
 
-        # 🔥 use 2D distance (more stable)
         thumb_to_pointer_dist = math.sqrt(
             (thumb['x'] - pointer['x'])**2 + 
             (thumb['y'] - pointer['y'])**2
         )
 
-        # 🔥 deterministic pinch override
         if thumb_to_pointer_dist < PINCH_THRESHOLD:
             index_finger = landmarks[8]
 
@@ -75,7 +73,7 @@ def handle_landmarks(data):
             }
 
             emit('predicted_results', packet)
-            return  # 🚨 skip model entirely
+            return 
         
         normalized = [thumb_to_pointer_dist]
         
