@@ -5,7 +5,7 @@ from flask_socketio import SocketIO, emit
 import math
 import time
 
-PROCESS_INTERVAL = 0.1  # 100ms = 10 FPS
+PROCESS_INTERVAL = 0.05  # 100ms = 10 FPS
 last_processed_time = {}
 
 app = Flask(__name__)
@@ -67,10 +67,8 @@ def handle_landmarks(data):
         # ------------------------------------------------
             
         probabilities = model.predict_proba([normalized])[0]
-        max_index = probabilities.argmax()
-
-        confidence = probabilities[max_index] * 100
-        raw_gesture = model.classes_[max_index].strip()
+        confidence = max(probabilities) * 100
+        raw_gesture = model.predict([normalized])[0].strip()
 
  
         all_landmarks = [

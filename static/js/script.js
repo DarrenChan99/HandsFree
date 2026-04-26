@@ -9,7 +9,7 @@ let targetX = 0.5;
 let targetY = 0.5;
 let currX = 0.5;
 let currY = 0.5;
-const alpha = 0.15;
+const alpha = 0.3;
 const confidenceThreshold = 65;
 
 let currentStage = 0;
