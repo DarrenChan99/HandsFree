@@ -10,7 +10,7 @@ let targetY = 0.5;
 let currX = 0.5;
 let currY = 0.5;
 const alpha = 0.3;
-const confidenceThreshold = 65;
+const confidenceThreshold = 70;
 
 let currentStage = 0;
 let stageCompleted = false;
@@ -260,10 +260,16 @@ function updateStageCompleted(stage) {
       triggerConfetti();
       setTimeout(() => {
         enterPlaygroundMode();
-        window.scrollTo({ 
-          top: document.body.scrollHeight,
-          behavior: "smooth" 
-        });
+
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({
+              top: document.documentElement.scrollHeight,
+              behavior: "smooth"
+            });
+          });
+        }, 300); 
+      
       }, 4000);
       return;
     }

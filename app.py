@@ -8,6 +8,8 @@ import time
 PROCESS_INTERVAL = 0.05  # 100ms = 10 FPS
 last_processed_time = {}
 
+PINCH_THRESHOLD = 0.045
+
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -49,9 +51,31 @@ def handle_landmarks(data):
             
         thumb = landmarks[4]
         pointer = landmarks[8]
-        thumb_to_pointer_dist = math.sqrt((thumb['x'] - pointer['x'])**2 + 
-                                          (thumb['y'] - pointer['y'])**2 + 
-                                          (thumb['z'] - pointer['z'])**2)
+
+        # 🔥 use 2D distance (more stable)
+        thumb_to_pointer_dist = math.sqrt(
+            (thumb['x'] - pointer['x'])**2 + 
+            (thumb['y'] - pointer['y'])**2
+        )
+
+        # 🔥 deterministic pinch override
+        if thumb_to_pointer_dist < PINCH_THRESHOLD:
+            index_finger = landmarks[8]
+
+            packet = {
+                "gesture": "Pinch",
+                "confidence": 100.0,
+                "x": 1.0 - index_finger['x'],
+                "y": index_finger['y'],
+                "is_detected": True,
+                "landmarks": [
+                    {"x": round(1.0 - lm['x'], 4), "y": round(lm['y'], 4)}
+                    for lm in landmarks
+                ]
+            }
+
+            emit('predicted_results', packet)
+            return  # 🚨 skip model entirely
         
         normalized = [thumb_to_pointer_dist]
         
@@ -67,8 +91,10 @@ def handle_landmarks(data):
         # ------------------------------------------------
             
         probabilities = model.predict_proba([normalized])[0]
-        confidence = max(probabilities) * 100
-        raw_gesture = model.predict([normalized])[0].strip()
+        max_index = probabilities.argmax()
+
+        confidence = probabilities[max_index] * 100
+        raw_gesture = model.classes_[max_index].strip()
 
  
         all_landmarks = [
