@@ -181,10 +181,19 @@ hands.setOptions({
   minTrackingConfidence: 0.5
 });
 
+let lastSent = 0;
+const SEND_INTERVAL = 100; // 10 FPS (sweet spot)
+
 hands.onResults((results) => {
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    const landmarks = results.multiHandLandmarks[0];
-    socket.emit('process_landmarks', { landmarks: landmarks });
+    const now = performance.now();
+
+    if (now - lastSent > SEND_INTERVAL) {
+      lastSent = now;
+
+      const landmarks = results.multiHandLandmarks[0];
+      socket.emit('process_landmarks', { landmarks });
+    }
   } else {
     latestHandData = null;
   }
@@ -204,14 +213,6 @@ camera.start().then(() => {
   update(); 
 });
 
-function update() {
-  currX = currX + (targetX - currX) * alpha;
-  currY = currY + (targetY - currY) * alpha;
-
-  drawGame(currX * canvas.width, currY * canvas.height);
-
-  requestAnimationFrame(update);
-}
 
 function update(shouldDrawGame = false) {
   currX = currX + (targetX - currX) * alpha;

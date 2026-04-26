@@ -1,8 +1,12 @@
 import pickle
 import os
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 import math
+import time
+
+PROCESS_INTERVAL = 0.1  # 100ms = 10 FPS
+last_processed_time = {}
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -16,6 +20,17 @@ def index():
 
 @socketio.on('process_landmarks')
 def handle_landmarks(data):
+    sid = request.sid
+    now = time.time()
+
+    if sid not in last_processed_time:
+        last_processed_time[sid] = 0
+
+    if now - last_processed_time[sid] < PROCESS_INTERVAL:
+        return
+
+    last_processed_time[sid] = now
+
     landmarks = data.get('landmarks')
     
     if not landmarks:
@@ -52,8 +67,10 @@ def handle_landmarks(data):
         # ------------------------------------------------
             
         probabilities = model.predict_proba([normalized])[0]
-        confidence = max(probabilities) * 100
-        raw_gesture = model.predict([normalized])[0].strip()
+        max_index = probabilities.argmax()
+
+        confidence = probabilities[max_index] * 100
+        raw_gesture = model.classes_[max_index].strip()
 
  
         all_landmarks = [
