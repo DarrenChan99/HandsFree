@@ -13,6 +13,11 @@ let currY = 0.5;
 const alpha = 0.3;
 const confidenceThreshold = 80;
 
+let lastFrameTime = performance.now();
+let displayFPS = 0;
+let frameCount = 0;
+let lastFPSUpdate = 0;
+
 let currentStage = 0;
 let stageCompleted = false;
 let transitioning = false;
@@ -227,6 +232,16 @@ function update(shouldDrawGame = false) {
 }
 
 hands.onResults((results) => {
+
+  const now = performance.now();
+  frameCount++;
+  
+  if (now - lastFPSUpdate > 500) {
+    displayFPS = Math.round((frameCount * 1000) / (now - lastFPSUpdate));
+    frameCount = 0;
+    lastFPSUpdate = now;
+  }
+
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     const landmarks = results.multiHandLandmarks[0];
     
@@ -450,6 +465,9 @@ function drawPlaygroundStats() {
   ctx.fillStyle = confColor;
   ctx.fillText(`Confidence: ${confidence.toFixed(1)}%`, bx + 12, by + 52);
   ctx.fillStyle = "#e8e8e8";
+
+  ctx.fillStyle = "#00ccff"; 
+  ctx.fillText(`FPS: ${displayFPS}`, bx + 12, by + 72);
 }
 
 function drawDisplayHand(x, y) {
