@@ -1,4 +1,5 @@
-const socket = io();
+import { predict } from './model_logic.js';
+
 const video = document.getElementById("webcam");
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -10,7 +11,7 @@ let targetY = 0.5;
 let currX = 0.5;
 let currY = 0.5;
 const alpha = 0.3;
-const confidenceThreshold = 70;
+const confidenceThreshold = 80;
 
 let currentStage = 0;
 let stageCompleted = false;
@@ -19,8 +20,7 @@ let playgroundMode = false;
 
 // hand data
 let latestHandData = null;
-let socketFPS = 0;
-let lastSocketTime = performance.now();
+
 
 // typing animation
 let typingTimer = null;
@@ -181,8 +181,7 @@ hands.setOptions({
   minTrackingConfidence: 0.5
 });
 
-let lastSent = 0;
-const SEND_INTERVAL = 100; // 10 FPS (sweet spot)
+
 
 hands.onResults((results) => {
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -192,7 +191,6 @@ hands.onResults((results) => {
       lastSent = now;
 
       const landmarks = results.multiHandLandmarks[0];
-      socket.emit('process_landmarks', { landmarks });
     }
   } else {
     latestHandData = null;
@@ -228,25 +226,70 @@ function update(shouldDrawGame = false) {
   requestAnimationFrame(update);
 }
 
-socket.on("predicted_results", (data) => {
-  const now = performance.now();
-  socketFPS = Math.round(1000 / (now - lastSocketTime));
-  lastSocketTime = now;
-  latestHandData = data;
+hands.onResults((results) => {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const landmarks = results.multiHandLandmarks[0];
+    
+    const wrist = landmarks[0];
+    const middleFinger = landmarks[9];
+    const thumb = landmarks[4];
+    const pointer = landmarks[8];
 
-  targetX = data.x;
-  targetY = data.y;
+    let dist = Math.sqrt(
+      Math.pow(middleFinger.x - wrist.x, 2) +
+      Math.pow(middleFinger.y - wrist.y, 2) +
+      Math.pow(middleFinger.z - wrist.z, 2)
+    );
+    if (dist < 1e-7) dist = 0.0001;
 
-  if (data.confidence > confidenceThreshold && !transitioning) {
-    const stage = tutorialStages[currentStage];
-    const screenPos = {
-      x: currX * canvas.width,
-      y: currY * canvas.height,
+    const thumbToPointerDist = Math.sqrt(
+      Math.pow(thumb.x - pointer.x, 2) +
+      Math.pow(thumb.y - pointer.y, 2)
+    );
+
+    let gesture;
+    let confidence;
+
+    if (thumbToPointerDist < 0.045) { 
+      gesture = "Pinch";
+      confidence = 100;
+    } else {
+      let normalized = [thumbToPointerDist];
+      landmarks.forEach(lm => {
+        normalized.push((lm.x - wrist.x) / dist);
+        normalized.push((lm.y - wrist.y) / dist);
+        normalized.push((lm.z - wrist.z) / dist);
+      });
+
+      const scores = predict(normalized); 
+      const gestureClasses = ["Cursor", "Pinch", "Scroll_Down", "Scroll_Up"]; 
+      const maxScore = Math.max(...scores);
+      const classIndex = scores.indexOf(maxScore);
+      
+      gesture = gestureClasses[classIndex];
+      confidence = maxScore * 100;
+    }
+
+    latestHandData = {
+      gesture: gesture,
+      confidence: confidence,
+      x: 1.0 - landmarks[8].x,
+      y: landmarks[8].y,
+      landmarks: landmarks.map(lm => ({ x: 1.0 - lm.x, y: lm.y }))
     };
 
-    if (stage.check(data, screenPos)) {
-      updateStageCompleted(stage);
+    targetX = latestHandData.x;
+    targetY = latestHandData.y;
+
+    if (!transitioning) {
+      const stage = tutorialStages[currentStage];
+      const screenPos = { x: currX * canvas.width, y: currY * canvas.height };
+      if (stage.check(latestHandData, screenPos)) {
+        updateStageCompleted(stage);
+      }
     }
+  } else {
+    latestHandData = null;
   }
 });
 
@@ -378,7 +421,6 @@ function drawGame(x, y) {
 
   drawDisplayHand(x, y);
   
-  // Draw confetti on top of everything
   if (confettiParticles.length > 0) {
     drawConfetti();
   }
@@ -408,7 +450,6 @@ function drawPlaygroundStats() {
   ctx.fillStyle = confColor;
   ctx.fillText(`Confidence: ${confidence.toFixed(1)}%`, bx + 12, by + 52);
   ctx.fillStyle = "#e8e8e8";
-  ctx.fillText(`FPS: ${socketFPS}`, bx + 12, by + 72);
 }
 
 function drawDisplayHand(x, y) {
