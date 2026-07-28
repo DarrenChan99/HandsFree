@@ -373,6 +373,11 @@ function enterPlaygroundMode() {
 function drawGame(x, y) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  ctx.textBaseline = "top";
+  ctx.font = "12px monospace";
+  ctx.fillStyle = "#e8e8e8";
+  ctx.fillText(`FPS: ${displayFPS}`, 8, 8);
+
   if (playgroundMode) {
     drawPlaygroundStats();
     drawDisplayHand(x, y);
@@ -467,7 +472,7 @@ function drawPlaygroundStats() {
   ctx.fillStyle = "#e8e8e8";
 
   ctx.fillStyle = "#00ccff"; 
-  ctx.fillText(`FPS: ${displayFPS}`, bx + 12, by + 72);
+  ctx.fillText(`FPS: ${displayFPS}`, bx + 12, by + 72);   
 }
 
 function drawDisplayHand(x, y) {
